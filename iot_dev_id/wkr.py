@@ -1,6 +1,19 @@
-import os, socket, csv
+import os, socket, csv, sys
+import logging as _logging
+
 from scapy.all import *
 from feat import *
+
+_logger = _logging.getLogger(__name__)
+_s_formatter = _logging.Formatter('[%(name)s][%(levelname)s]: %(message)s')
+_f_formatter = _logging.Formatter('[%(levelname)s]: %(message)s')
+_hdlr = _logging.StreamHandler(sys.stdout)
+_file_hdlr = _logging.FileHandler(__name__+'.log')
+_hdlr.setFormatter(_s_formatter)
+_file_hdlr.setFormatter(_f_formatter)
+_logger.setLevel(_logging.DEBUG)
+_logger.addHandler(_hdlr)
+_logger.addHandler(_file_hdlr)
 
 load_layer('tls')
 
@@ -14,7 +27,7 @@ CMD_PRED = b'\x02'
 CMD_CLS = b'\x00\x00\x00\x00'
 CMD_VFY = b'\x00\x00\x00\x01'
 
-PTH_TMP = './tmp' # Path of directory for temporary pcap files
+PTH_TMP = './iot_dev_id/tmp' # Path of directory for temporary pcap files
 
 PROXY_ADDR = '127.0.0.1'
 PROXY_PORT = 2001
@@ -44,9 +57,9 @@ def vfy(cli, lbls, mac):
             if err == 0:
                 err = i + 1
     if err == 0:
-        print('<Device Worker> Predicted labels of device [{}] are correct!'.format(mac))
+        _logger.debug('Predicted labels of device [{}] are correct!'.format(mac))
     else:
-        print('<Device Worker> Predicted labels of device [{}] are wrong.\n-> Correct labels: {}'.format(mac, lbls))
+        _logger.debug('Correct labels: {}'.format(mac, lbls))
     return err
 
 def run(cli):
@@ -69,7 +82,7 @@ def run(cli):
     wrtr_csv = csv.writer(feats_f)
 
     mac = cli.recv(17, socket.MSG_WAITALL).decode()
-    print('<Device Worker> Ready to analyze network traffic of device [{}] ...'.format(mac))
+    _logger.debug('Ready to analyze network traffic of device [{}] ...'.format(mac))
 
     while True:
         # First 4 bytes of data may indicate # of bytes of packet or commands.
@@ -95,7 +108,7 @@ def run(cli):
             if pkt.time - strt > THOLD_SU and pkt.time - dns > THOLD_DNS: # Set-up is considered as finished.
                 wrtr_pcap.close()
                 rec = False
-                print('<Device Worker> Set-up of device [{}] is finished. Duration < {} sec.'.format(mac, pkt.time - strt))
+                _logger.debug('Set-up of device [{}] is finished. Duration < {} sec.'.format(mac, pkt.time - strt))
                 # ----- Store features extracted from all but factory-reset traces. -----
                 if cnt != 0:
                     smrz_feats(feats, protos, feat_cnts, oths)
@@ -106,7 +119,7 @@ def run(cli):
                         # Close csv file so that Classification Proxy can open it for reading.
                         feats_f.close()
                         proxy.connect((PROXY_ADDR, PROXY_PORT))
-                        print('<Device Worker> Connect to Classification Proxy [{}:{}] to predict labels of device [{}].'.format(PROXY_ADDR, PROXY_PORT, mac))
+                        _logger.debug('Connect to Classification Proxy [{}:{}] to predict labels of device [{}].'.format(PROXY_ADDR, PROXY_PORT, mac))
                         pred(proxy, lbls, cli)
                         proxy.close()
                     else:
@@ -135,12 +148,12 @@ def run(cli):
                 prs_pkt(pkt, protos, feat_cnts, feats)
             # -----
         elif pkt.haslayer(DHCP) and pkt[Ether].src == mac:
-            print('<Device Worker> Device [{}] is online.'.format(mac))
+            _logger.debug('Device [{}] is online.'.format(mac))
             rec = True
             strt = pkt.time
             # TODO: use pcapng file format instead of pcap.
             wrtr_pcap = PcapWriter('{}/{}-{}.pcap'.format(PTH_TMP, os.getpid(), cnt))
-            print('<Device Worker> Writing network trace of device [{}] to file [{}/{}-{}.pcap] ...'.format(mac, PTH_TMP, os.getpid(), cnt))
+            _logger.debug('Writing network trace of device [{}] to file [{}/{}-{}.pcap] ...'.format(mac, PTH_TMP, os.getpid(), cnt))
             wrtr_pcap.write(pkt)
             # ----- Extract features once packets arrive. -----
             if pkt[Ether].src == mac:

@@ -1,9 +1,21 @@
-import os
+import os, sys
+import logging as _logging
+
+_logger = _logging.getLogger(__name__)
+_s_formatter = _logging.Formatter('[%(name)s][%(levelname)s]: %(message)s')
+_f_formatter = _logging.Formatter('[%(levelname)s]: %(message)s')
+_hdlr = _logging.StreamHandler(sys.stdout)
+_file_hdlr = _logging.FileHandler(__name__+'.log')
+_hdlr.setFormatter(_s_formatter)
+_file_hdlr.setFormatter(_f_formatter)
+_logger.setLevel(_logging.DEBUG)
+_logger.addHandler(_hdlr)
+_logger.addHandler(_file_hdlr)
 
 def run(rd, wrt):
     dev = [None, None, None]
 
-    print('<Verifier> Ready for user verification.')
+    _logger.debug('Ready for user verification.')
     while True:
         # ----- Receive predicted labels of device from Device Detector. -----
         mac = os.read(rd, 17).decode()
@@ -11,7 +23,8 @@ def run(rd, wrt):
             n = int.from_bytes(os.read(rd, 1), 'big')
             dev[i] = os.read(rd, n).decode()
         # ----- Ask for user verification. -----
-        print('<Verifier> Identity of device [{}]:\n-> Type: {}\n-> Manufacturer: {}\n-> Model: {}'.format(mac, dev[0], dev[1], dev[2]))
+        _logger.debug('Identity of device [{}]:\n-> Type: {}\n-> Manufacturer: {}\n-> Model: {}'.format(mac, dev[0], dev[1], dev[2]))
+        '''
         cqt = input('Is predicted identity correct? (yes/no) ')
 
         if cqt == 'no':
@@ -35,6 +48,7 @@ def run(rd, wrt):
         else:
             for i in range(len(dev)):
                 dev[i] = None
+        '''
         # ----- Forward verification result to Device Detector. -----
         os.write(wrt, mac.encode())
         for i in range(len(dev)):

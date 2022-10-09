@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import time, matplotlib
-from feat import *
+from iot_dev_id.feat import *
 # Decision trees
 from sklearn import tree
 # ML model persistence

@@ -1,5 +1,5 @@
 import csv
-from feat import *
+from iot_dev_id.feat import *
 
 def idx2code_cphr(idx):
     code = 0x0000

@@ -10,6 +10,19 @@ from scapy.all import *
 import sys, os, signal, socket, select, time
 import vfyr
 
+import logging as _logging
+
+_logger = _logging.getLogger("Device Detector")
+_s_formatter = _logging.Formatter('[%(name)s][%(levelname)s]: %(message)s')
+_f_formatter = _logging.Formatter('[%(levelname)s]: %(message)s')
+_hdlr = _logging.StreamHandler(sys.stdout)
+_file_hdlr = _logging.FileHandler('Device Detector.log')
+_hdlr.setFormatter(_s_formatter)
+_file_hdlr.setFormatter(_f_formatter)
+_logger.setLevel(_logging.DEBUG)
+_logger.addHandler(_hdlr)
+_logger.addHandler(_file_hdlr)
+
 CMD_STOP = b'\x00'
 CMD_RECNCT = b'\x01'
 CMD_PRED = b'\x02'
@@ -42,7 +55,7 @@ def recnct(sig, frm):
         if info[1] != 0.0 and cur - info[1] >= OFF_TIME:
             #os.system('hostapd_cli deny_acl DEL_MAC {} > /dev/null'.format(info[0]))
             os.system('aireplay-ng -0 3  -a 1c:ab:c0:fa:d2:d8  -c {} -D wlx1c61b463d19a > /dev/null'.format(info[0]))
-            print('<Device Detector> Allow device [{}] to reconnect to Wi-Fi network.'.format(info[0]))
+            _logger.debug('Allow device [{}] to reconnect to Wi-Fi network.'.format(info[0]))
             info[1] = 0.0
 
 # Forward captured packets from Trace Collector to Device Dectector.
@@ -55,10 +68,10 @@ def wrt_pkt(pkt):
 def new_dev(mac, fds, devs):
     global wkrs
 
-    print('<Device Detector> New device [{}] is online.'.format(mac))
+    _logger.debug('New device [{}] is online.'.format(mac))
     wkr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     wkr.connect((CLD_ADDR, CLD_PORT))
-    print('<Device Detector> Connect to Cloud [{}:{}] for identification of device [{}].'.format(CLD_ADDR, CLD_PORT, mac))
+    _logger.debug('Connect to Cloud [{}:{}] for identification of device [{}].'.format(CLD_ADDR, CLD_PORT, mac))
     fds.register(wkr.fileno(), select.EPOLLIN)
     devs[mac] = [None, None, None]
     # If file descriptor of socket is used as key, socket will be closed automatically after function returns.
@@ -72,19 +85,19 @@ def discnct(wkr):
     os.system('aireplay-ng -0 3  -a 1c:ab:c0:fa:d2:d8  -c {} -D wlx1c61b463d19a > /dev/null'.format(mac))
     # Make sure device is disconnected from Wi-Fi network.
     os.system('aireplay-ng -0 3  -a 1c:ab:c0:fa:d2:d8  -c {} -D wlx1c61b463d19a > /dev/null'.format(mac))
-    print('<Device Detector> Disconnect device [{}] from Wi-Fi network.'.format(mac))
+    _logger.debug('Disconnect device [{}] from Wi-Fi network.'.format(mac))
     wkrs[wkr][1] = time.time()
     signal.alarm(OFF_TIME)
 
 def end_dev(wkr, fds):
     global wkrs
 
-    print('<Device Detector> Analysis of device [{}] is finished.'.format(wkrs[wkr][0]))
+    _logger.debug('Analysis of device [{}] is finished.'.format(wkrs[wkr][0]))
     wkr.send(CMD_CLS)
     del wkrs[wkr]
     fds.unregister(wkr.fileno())
     wkr.close()
-    print('<Device Detector> Disconnect from Cloud [{}:{}].'.format(CLD_ADDR, CLD_PORT))
+    _logger.debug('Disconnect from Cloud [{}:{}].'.format(CLD_ADDR, CLD_PORT))
 
 def main():
     detr2vfyr_rd, detr2vfyr_wrt = os.pipe()
@@ -109,7 +122,7 @@ def main():
         os.close(vfyr2detr_rd)
         os.close(vfyr2detr_wrt)
         # Print log before dup2() so that log is not sent to pipe.
-        print('<Trace Collector> Collecting network traffic ...')
+        _logger.debug('Collecting network traffic ...')
         os.dup2(tc_wrt, sys.stdout.fileno())
         os.close(tc_rd)
         os.close(tc_wrt)
