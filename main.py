@@ -4,16 +4,13 @@ import subprocess as sp
 import shlex
 import time
 import re
+import signal
 
 import multiprocessing as mp
 import threading
 import logging
 
 import tls
-# import OpenSSL.crypto
-# import pyshark
-# import codecs
-# from cs_dict import cs_dict
 import ip2mac
 
 arp_flag = threading.Event()
@@ -30,6 +27,39 @@ arp_logger.addHandler(stream_hdlr)
 mitm_logger = logging.getLogger('mitm')
 mitm_logger.setLevel(logging.DEBUG)
 mitm_logger.addHandler(stream_hdlr)
+
+sp_list = []
+
+def cld():
+    global sp_list
+    cmd = './iot_dev_id/cld.py'
+    args = shlex.split(cmd)
+
+    id_cld_p = sp.Popen(args)
+    sp_list.append(id_cld_p)
+
+    return
+
+
+def dev_detr():
+    global sp_list
+    cmd = './iot_dev_id/dev_detr.py'
+    args = shlex.split(cmd)
+
+    dev_detr_p = sp.Popen(args)
+    sp_list.append(dev_detr_p)
+
+    return
+
+def iot_dev_id():
+    cld()
+    dev_detr()
+
+def disconnect(ap_mac,dev_mac):
+    cmd = f'aireplay-ng -0 3  -a {ap_mac}  -c {dev_mac} -D wlx1c61b463d19a > /dev/null'
+    print(cmd)
+    os.system(cmd)
+    return
 
 def arp(target, gateway = None): # In Progress
     arp_logger.debug('Start arp poisoning')
@@ -107,29 +137,52 @@ def main():
                             )
 
 
-    ip2mac_t.start()
+    #ip2mac_t.start()
     #arp_t.start()
     #tls_version_ciphersuite_t.start()
     #tls_cert_t.start()
     #mitm_t.start()
 
+    iot_dev_id()
+
     time.sleep(3)
-    input('Press Enter to stop...\n')
+    '''
+    while True:
+        mac_list = [mac for mac in ip2mac.ip2mac.values()]
+        for i,mac in enumerate(mac_list):
+            print(i,mac)
+        print('q','to leave')
+
+        opt = input('Select one device: ')
+        if opt == 'q':
+            break
+        opt = int(opt)
+        if opt >= len(mac_list):
+            continue
+        ap_mac = ip2mac.get_ap_bssid()
+        dev_mac = mac_list[opt]
+        disconnect(ap_mac, dev_mac)
+    '''
+    input('Press any key to stop...')
+        
     #tls_version_ciphersuite_flag.set()
     #tls_cert_flag.set()
-    ip2mac.ip2mac_flag.set()
+    #ip2mac.ip2mac_flag.set()
     #arp_flag.set()
     #mitm_flag.set()
 
     #tls_version_ciphersuite_t.join()
     #tls_cert_t.join()
-    ip2mac_t.join()
+    #ip2mac_t.join()
     #arp_t.join()
     #mitm_t.join()
 
 
     #print(ip2mac.ip2mac)
-
+    
+    for p in sp_list:
+        p.terminate()
+        p.wait()
 
 
 
