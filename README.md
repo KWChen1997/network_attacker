@@ -1,3 +1,92 @@
-# Functions
+# Functionalities
 ## ip-mac information collection
-- 
+- ip2mac.py
+- function description
+    - nm2num
+        - natmask to number (ex: 255.255.255.0 -> 24)
+        - args
+            - nm: netmask (string)
+        - return value: number of bits of the netmask (int)
+    - get_ap_bssid
+        - get the bssid of the ap
+        - args: None
+        - return value: bssid of ap (string)
+    - get_route
+        - get the gateway, netmask, interface of the wifi connection
+        - args: None
+        - return value: gateway (string), netmask (string), network interface (string)
+    - probe
+        - single probe for ip and mac pair
+        - args
+            - gw: gateway (string) default: None
+            - nm: netmask (string) default: None
+            - iface: network interface (string) default: None
+        - return value: None
+    - probes
+        - multiple probes for ip and mac pair
+        - args
+            - gw: gateway (string) default: None
+            - nm: netmask (string) default: None
+            - count: number of probes (int) default: None
+                - if count is **zero**, probing will continues until the ip2mac_flag is set.
+        - return value: None
+
+## arp spoofing
+- Implemented in **main.py**
+- function description
+    - arp
+        - arp poison the target device
+        - args
+            - target: ip address (string)
+            - gateway: gateway address (string)
+        - return value: None
+
+## sslstrip (mitmdump)
+- Implemented in **main.py**
+- function description
+    - mitm
+        - start sslstrip attack
+        - args: None
+        - return value: None
+
+## TLS related functions
+- tls.py
+- checking list of tls
+    - ciphersuite
+    - tls version
+    - certificate chains
+- function description
+    - get_version_ciphersuite
+        - extract tls version and ciphersuite from tls packets
+        - args
+            - pkt: tls packet from pyshark
+        - return value: version name (string), ciphersuite (string)
+    - check_alert(pkt)
+        - check if the packet is 'Unknown Alert'
+        - args
+            - pkt: tls packet from pyshark
+        - return value: True/False
+    - get_certs
+        - extract certification chains from tls certificate packet
+        - args
+            - pkt: tls packet from pyshark
+        - return value: certificate chains
+    - verify
+        - verify certificate chains
+        - args
+            - cert_list: certificate chain (list)
+        - return value: True/False
+    - verify_cert_pkt
+        - verity certificate chain in tls certificate packet
+        - args
+            - pkt: tls packet from pyshark
+        - return value: None
+    - sniffer
+        - apply callback function to specific packets
+        - args
+            - iface: network interface
+            - flag: flag to stop the sniffer (threading.event)
+            - callback: callback function to be applied on the packet
+            - display_filter: packet filter for pyshark
+        - return value: None
+
