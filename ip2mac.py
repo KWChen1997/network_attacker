@@ -23,6 +23,7 @@ _netmask = None
 _iface = None
 ip2mac = {}
 ip2mac_flag = _threading.Event()
+_alive = {}
 
 def nm2num(nm):
     tmp = nm.split('.')
@@ -38,6 +39,15 @@ def nm2num(nm):
         mask = mask >> 1
 
     return 32 - count
+
+def get_ap_bssid():
+    _,_,iface = get_route()
+    cmd = f"iwconfig {iface}"
+    args = _shlex.split(cmd)
+    prompt = _sp.check_output(args).decode()
+    ap_bssid = _re.search('([0-9a-fA-F]:?){12}',prompt)[0]
+
+    return ap_bssid
 
 def get_route():
     global _gw
@@ -70,12 +80,21 @@ def probe(iface = None, gw = None, nm = None):
     prompts, _ = p.communicate()
     prompts = prompts.decode().split('\n')[:-1]
 
+    tmp = {}
     for prompt in prompts:
         m = prompt.split('\t')[:2]
-        if m[0] not in ip2mac or m[1] != ip2mac[m[0]]:
+        if m[0] not in ip2mac or _alive[m[0]] <= 0 or ip2mac[m[0]] != m[1]:
             _logger.info(f'{m[0]} is at {m[1]}')
         ip2mac[m[0]] = m[1]
-    
+        _alive[m[0]] = 3
+
+    for ip in ip2mac:
+        if ip not in tmp and _alive[ip] != -1:
+            _alive[ip] -= 1
+
+        if _alive[ip] == 0:
+            _logger.info(f'{ip} has left')
+
 
 def probes(gw = None, nm = None, count = 0):
     if count == 0:
